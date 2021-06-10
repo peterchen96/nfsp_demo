@@ -61,12 +61,12 @@ for episode in 1:train_episodes
             if length(reservoir.records) > nfsp[player_id]["SL_buffer_capacity"]
                 popfirst!(reservoir.records[:state])
                 popfirst!(reservoir.records[:action])
-
             end
+        
         else
             action = sl_policy(wrapped_env)
-
         end
+       
         rl_policy(PRE_ACT_STAGE, wrapped_env, action)
         env(action)
         rl_policy(POST_ACT_STAGE, wrapped_env)
@@ -78,11 +78,8 @@ for episode in 1:train_episodes
                 s = BatchSampler{(:state, :action)}(nfsp[player_id]["batch_size"];)
                 _, batch = s(reservoir.records)
                 RLBase.update!(sl_policy, batch)
-
             end
-
         end
-
     end
 
     if episode % eval_every == 0
