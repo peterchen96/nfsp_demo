@@ -1,5 +1,6 @@
 using ReinforcementLearning
 using StableRNGs
+using ProgressMeter
 
 include("nfsp.jl")
 
@@ -42,7 +43,7 @@ nfsp = [initial_NFSPAgent(env, states_indexes_Dict, player_id; ϵ_decay = ϵ_dec
 episodes = []
 rewards = []
 
-for episode in 1:train_episodes
+@showprogress for episode in 1:train_episodes
 
     reset!(env)
     while current_player(env) == chance_player(env)
