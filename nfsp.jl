@@ -31,13 +31,14 @@ end
 function initial_NFSPAgent(
     env::KuhnPokerEnv, 
     states_indexes_Dict,
-    player_id,
+    player_id;
+
     # parameters setting
     # public parameters
+    device = gpu,
     optimizer_str = "sgd",
     batch_size::Int = 128,
     learn_every::Int = 128,
-    # eval_every::Int = 10_000,
     min_buffer_size_to_learn::Int = 1000,
     hidden_layers_sizes = (128, 128, 128, 128),
 
@@ -54,6 +55,7 @@ function initial_NFSPAgent(
     sl_learning_rate = 0.01,
     SL_buffer_capacity::Int = 2_000_000
     )
+
     # Neural network construction
     ns = length(states_indexes_Dict[player_id][state(env, player_id)])
     na = length(action_space(env, player_id))
@@ -69,11 +71,11 @@ function initial_NFSPAgent(
         policy = QBasedPolicy(
             learner = DQNLearner(
                 approximator = NeuralNetworkApproximator(
-                    model = build_dueling_network(base_model) |> gpu,
+                    model = build_dueling_network(base_model) |> device,
                     optimizer = optimizer_str == "sgd" ? Descent(rl_learning_rate) : ADAM(rl_learning_rate),
                 ),
                 target_approximator = NeuralNetworkApproximator(
-                    model = build_dueling_network(base_model) |> gpu,
+                    model = build_dueling_network(base_model) |> device,
                 ),
                 γ = discount_factor,
                 loss_func = huber_loss,
@@ -101,7 +103,7 @@ function initial_NFSPAgent(
     # SL agent setting (Average Policy)
     sl_agent = BehaviorCloningPolicy(
         approximator = NeuralNetworkApproximator(
-            model = base_model |> cpu,
+            model = base_model |> cpu, # device
             optimizer = optimizer_str == "sgd" ? Descent(sl_learning_rate) : ADAM(sl_learning_rate),
             ),
         )

@@ -34,8 +34,9 @@ seed = 123
 rng = StableRNG(seed)
 
 eval_every = 10_000
-train_episodes = 10_000_000_000
-nfsp = [initial_NFSPAgent(env, states_indexes_Dict, player_id) 
+ϵ_decay = 2_000_000
+train_episodes = 10_000_000
+nfsp = [initial_NFSPAgent(env, states_indexes_Dict, player_id; ϵ_decay = ϵ_decay) 
     for player_id in players(env) if player_id != chance_player(env)]
 
 episodes = []
