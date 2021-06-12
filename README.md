@@ -16,4 +16,4 @@ get player 1 reward based on the trained policy
 
 ![result](./result.png)
 
-However, `nash_conv` is a more confidential metric for evaluating and I don't know how to  approximate it.
+However, `nash_conv` is a more reliable metric for evaluating and I don't know how to  approximate it.
