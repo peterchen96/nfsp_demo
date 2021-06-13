@@ -8,8 +8,8 @@ Based on `DQNLearner` in `QBasedPolicy` (as RL) and `BehaviorCloningPolicy` in `
 
 set:
 
-$`\epsilon`$ _ decay = 2000000,
-train_episodes = 10000000,
+$\epsilon$ _ decay = 20000000,
+train_episodes = 100000000,
 eval_every = 10000.
 
 get player 1 reward based on the trained policy
