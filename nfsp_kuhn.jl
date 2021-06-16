@@ -1,6 +1,7 @@
 using ReinforcementLearning
+using Flux
 using StableRNGs
-using ProgressMeter
+using ProgressMeter: @showprogress
 
 include("nfsp.jl")
 
@@ -9,12 +10,12 @@ states = [
     [(), (:J,), (:J, :pass, :bet), (:Q,), (:Q, :pass, :bet), (:K,), (:K, :pass, :bet),
     (:J, :bet, :bet), (:J, :bet, :pass), (:J, :pass, :bet), (:J, :pass, :pass), (:Q, :bet, :bet), 
     (:Q, :bet, :pass), (:Q, :pass, :bet), (:Q, :pass, :pass), (:K, :bet, :bet), (:K, :bet, :pass), 
-    (:K, :pass, :bet), (:K, :pass, :pass)], # player 1 states when playing game
+    (:K, :pass, :bet), (:K, :pass, :pass)], # player 1 all states when playing game
 
     [(), (:J, :bet), (:J, :pass), (:Q, :bet), (:Q, :pass), (:K, :bet), (:K, :pass),
     (:J, :bet), (:J, :pass), (:J, :pass, :bet, :bet), (:J, :pass, :bet, :pass), (:Q, :bet), (:Q, :pass), 
     (:Q, :pass, :bet, :bet), (:Q, :pass, :bet, :pass), (:K, :bet), (:K, :pass), (:K, :pass, :bet, :bet), 
-    (:K, :pass, :bet, :pass)] # player 2 states when playing game
+    (:K, :pass, :bet, :pass)] # player 2 all states when playing game
 ]
 
 states_indexes_Dict = [Dict([(i, j) for (j, i) in enumerate(s)]) for s in states]
@@ -32,18 +33,19 @@ wrapped_env = ActionTransformedEnv(
 # global parameters
 η = 0.1
 seed = 123
+used_device = gpu
 rng = StableRNG(seed)
 
 eval_every = 10_000
-ϵ_decay = 20_000_000
-train_episodes = 100_000_000
-nfsp = [initial_NFSPAgent(env, states_indexes_Dict, player_id; ϵ_decay = ϵ_decay) 
+ϵ_decay = 2_000_000
+train_episodes = 10_000_000
+nfsp = [NFSPAgent(env, states_indexes_Dict, player_id; _device = used_device, ϵ_decay = ϵ_decay) 
     for player_id in players(env) if player_id != chance_player(env)]
 
 episodes = []
 rewards = []
 
-@showprogress for episode in 1:train_episodes
+@showprogress for episode in range(1, length=train_episodes)
 
     reset!(env)
     while current_player(env) == chance_player(env)
@@ -54,34 +56,23 @@ rewards = []
         player_id = current_player(env)
         sl_policy = nfsp[player_id]["sl_agent"]
         rl_policy = nfsp[player_id]["rl_agent"]
-        reservoir = nfsp[player_id]["reservoir"]
         
         if rand(rng) < η
             action = rl_policy(wrapped_env)
-            reservoir(PRE_ACT_STAGE, rl_policy, wrapped_env, action)
+            sl_policy(PRE_ACT_STAGE, wrapped_env, action)
+            rl_policy(PRE_ACT_STAGE, wrapped_env, action)
+            env(action)
+            sl_policy(POST_ACT_STAGE, wrapped_env)
+            rl_policy(POST_ACT_STAGE, wrapped_env)
 
-            if length(reservoir.records) > nfsp[player_id]["SL_buffer_capacity"]
-                popfirst!(reservoir.records[:state])
-                popfirst!(reservoir.records[:action])
-            end
-        
         else
             action = sl_policy(wrapped_env)
-        end
-       
-        rl_policy(PRE_ACT_STAGE, wrapped_env, action)
-        env(action)
-        rl_policy(POST_ACT_STAGE, wrapped_env)
+            rl_policy(PRE_ACT_STAGE, wrapped_env, action)
+            env(action)
+            rl_policy(POST_ACT_STAGE, wrapped_env)
 
-        if length(reservoir.records) >= nfsp[player_id]["min_buffer_size_to_learn"]
-            nfsp[player_id]["SL_iters"] += 1
-
-            if nfsp[player_id]["SL_iters"] % nfsp[player_id]["SL_update_freq"] == 0
-                s = BatchSampler{(:state, :action)}(nfsp[player_id]["batch_size"];)
-                _, batch = s(reservoir.records)
-                RLBase.update!(sl_policy, batch)
-            end
         end
+        
     end
 
     if episode % eval_every == 0
@@ -92,6 +83,8 @@ rewards = []
 
 end
 
+# show results
+ENV["GKSwstype"]="nul" 
 using Plots
 
 savefig(plot(episodes, rewards, xaxis=:log), "result")
