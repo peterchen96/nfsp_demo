@@ -30,7 +30,7 @@ where `AverageLearner` is an AbstractLearner which I imitated the structure from
 
 parameters setting:
 
-most parameters are the same as the ![paper](https://arxiv.org/abs/2103.00187)'s `NFSP_Kuhn experiment part`.
+most parameters are the same as the [paper](https://arxiv.org/abs/2103.00187)'s `NFSP_Kuhn experiment part`.
 
 <details>
     <summary> same parameters </summary>
