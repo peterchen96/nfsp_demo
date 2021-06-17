@@ -62,6 +62,7 @@ most parameters are the same as the [paper](https://arxiv.org/abs/2103.00187)'s 
   * $\epsilon$ _ decay = 2_000_000,
   * train_episodes = 10_000_000, 
   * hidden_layers_sizes = (64, 64),
+  * used_device = cpu,
   * evaluation_metric: player 1's reward
 
 
