@@ -44,10 +44,8 @@ most parameters are the same as the [paper](https://arxiv.org/abs/2103.00187)'s 
       * min_buffer_size_to_learn = 1_000,
       * optimizer = Descent,
 
-
       * SL_buffer_capacity = 2_000_000,
       * SL_learning_rate = 0.01,
-
 
       * RL_buffer_capacity = 200_000,
       * update_target_network_every = 19200,
@@ -57,13 +55,13 @@ most parameters are the same as the [paper](https://arxiv.org/abs/2103.00187)'s 
       * $\epsilon$ _ end = 0.001,
       * $\epsilon$ _ decay kind = linear.
 
-
 </details>
 
-* $\epsilon$ _ decay = 2_000_000,
-* train_episodes = 10_000_000, 
+* difference:
+  * $\epsilon$ _ decay = 2_000_000,
+  * train_episodes = 10_000_000, 
 
-* evaluation_metric:
+  * evaluation_metric:
 
     * get player 1 reward based on the trained policy
 
