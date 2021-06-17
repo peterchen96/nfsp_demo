@@ -3,7 +3,7 @@ using Flux
 using StableRNGs
 using ProgressMeter: @showprogress
 
-include("nfsp.jl")
+include("NFSPAgent.jl")
 
 env = KuhnPokerEnv()
 states = [
@@ -33,13 +33,18 @@ wrapped_env = ActionTransformedEnv(
 # global parameters
 η = 0.1
 seed = 123
-used_device = gpu
+used_device = Flux.cpu # Flux.gpu
 rng = StableRNG(seed)
 
+hidden_layers = (64, 64)
 eval_every = 10_000
 ϵ_decay = 2_000_000
 train_episodes = 10_000_000
-nfsp = [NFSPAgent(env, states_indexes_Dict, player_id; _device = used_device, ϵ_decay = ϵ_decay) 
+nfsp = [NFSPAgent(env, states_indexes_Dict, player_id; 
+            _device = used_device, 
+            ϵ_decay = ϵ_decay, 
+            hidden_layers_sizes = hidden_layers,
+            ) 
     for player_id in players(env) if player_id != chance_player(env)]
 
 episodes = []
@@ -54,8 +59,8 @@ rewards = []
 
     while !is_terminated(env)
         player_id = current_player(env)
-        sl_policy = nfsp[player_id]["sl_agent"]
-        rl_policy = nfsp[player_id]["rl_agent"]
+        sl_policy = nfsp[player_id].sl_agent
+        rl_policy = nfsp[player_id].rl_agent
         
         if rand(rng) < η
             action = rl_policy(wrapped_env)

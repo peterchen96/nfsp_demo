@@ -2,29 +2,31 @@
 
 Use `Julia` to implement `Neural Fictitious Self-play(NFSP)` algorithm and test it on `kuhn poker` game(use Env `KuhnPokerEnv`).
 
-* rl_agent: 
-```julia
-Agent(
-    policy = QBasedPolicy(
-        learner = DQNLearner,
-        explorer = EpsilonGreedyExplorer,
-    ),
-    trajectory = CircularArraySARTTrajectory
-)
-```
+* NFSPAgent:
+    
+    * rl_agent: 
+    ```julia
+    Agent(
+        policy = QBasedPolicy(
+            learner = DQNLearner,
+            explorer = EpsilonGreedyExplorer,
+        ),
+        trajectory = CircularArraySARTTrajectory
+    )
+    ```
 
-* sl_agent:
-```julia
-Agent(
-    policy = QBasedPolicy(
-        learner = AverageLearner,
-        explorer = GreedyExplorer,
-    ),
-    trajectory = CircularArraySARTTrajectory,
-)
-```
-
-where `AverageLearner` is an `AbstractLearner` which I imitated the structure from `DQNLearner` and rewrite its network updating process.
+    * sl_agent:
+    ```julia
+    Agent(
+        policy = QBasedPolicy(
+            learner = AverageLearner,
+            explorer = GreedyExplorer,
+        ),
+        trajectory = CircularArraySARTTrajectory,
+    )
+    ```
+    
+    where `AverageLearner` is an `AbstractLearner` which I imitated the structure from `DQNLearner` and rewrite its network updating process.
 
 ##### recent progress
 
@@ -40,7 +42,6 @@ most parameters are the same as the [paper](https://arxiv.org/abs/2103.00187)'s 
       * eval_every = 10_000,
       * learn_freq = 128,
       * batch_size = 128,
-      * hidden_layers_sizes = (128, 128, 128, 128),
       * min_buffer_size_to_learn = 1_000,
       * optimizer = Descent,
 
@@ -60,9 +61,12 @@ most parameters are the same as the [paper](https://arxiv.org/abs/2103.00187)'s 
 * difference:
   * $\epsilon$ _ decay = 2_000_000,
   * train_episodes = 10_000_000, 
+  * hidden_layers_sizes = (64, 64),
+  * evaluation_metric: player 1's reward
 
-  * evaluation_metric:
 
-    * get player 1 reward based on the trained policy
+* used time: about 10 min
+
+* result:
 
 ![result](./result.png)

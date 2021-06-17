@@ -5,6 +5,11 @@ using Flux.Losses
 
 include("average_learner.jl")
 
+mutable struct NFSPAgent
+    rl_agent::Agent
+    sl_agent::Agent
+end
+
 # DQN network relative functions
 function build_dueling_network(network::Chain)
     lm = length(network)
@@ -112,9 +117,9 @@ function NFSPAgent(
         ),
     )
 
-    return Dict(
-        "rl_agent" => rl_agent,
-        "sl_agent" => sl_agent,
+    NFSPAgent(
+        rl_agent,
+        sl_agent,
     )
     
 end
