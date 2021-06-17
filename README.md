@@ -1,4 +1,4 @@
-#### NFSP Kuhn
+### NFSP Kuhn
 
 Use `Julia` to implement `Neural Fictitious Self-play(NFSP)` algorithm and test it on `kuhn poker` game(use Env `KuhnPokerEnv`).
 
@@ -28,7 +28,7 @@ Use `Julia` to implement `Neural Fictitious Self-play(NFSP)` algorithm and test 
     
     where `AverageLearner` is an `AbstractLearner` which I imitated the structure from `DQNLearner` and rewrite its network updating process.
 
-##### recent progress
+#### recent progress
 
 parameters setting:
 
@@ -70,4 +70,7 @@ most parameters are the same as the [paper](https://arxiv.org/abs/2103.00187)'s 
 
 * result:
 
-![result](./result.png)
+<div align="center">
+<img src="./scatter_result.png" height="300px" alt="scatter_result" >
+<img src="./result.png" height="300px" alt="result" >
+</div>

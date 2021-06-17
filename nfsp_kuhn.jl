@@ -92,4 +92,5 @@ end
 ENV["GKSwstype"]="nul" 
 using Plots
 
+savefig(scatter(episodes, rewards, xaxis=:log), "scatter_result")
 savefig(plot(episodes, rewards, xaxis=:log), "result")
