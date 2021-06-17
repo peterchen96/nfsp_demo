@@ -24,7 +24,7 @@ Agent(
 )
 ```
 
-where `AverageLearner` is an AbstractLearner which I imitated the structure from `DQNLearner` and the loss function is `logitcrossentropy`.
+where `AverageLearner` is an `AbstractLearner` which I imitated the structure from `DQNLearner` and rewrite its network updating process.
 
 ##### recent progress
 
