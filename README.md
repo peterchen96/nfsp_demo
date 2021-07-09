@@ -4,7 +4,7 @@ Use `RL.jl` to implement `Neural Fictitious Self-play(NFSP)` algorithm and test 
 
 ### NFSPAgent's structure:
 
-* \eta:
+* \eta(anticipatory parameter):
 
     ```julia
     if rand() < \eta
