@@ -95,6 +95,8 @@ wrapped_env = StateTransformedEnv(
 * used time : about 10 min.
 * evaluation_metric: nash_conv
 
+The result looks worse. :disappointed_relieved:
+
 <div align="center">
 <img src="./result.png" height="300px" alt="result" >
 </div>
