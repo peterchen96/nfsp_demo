@@ -11,16 +11,22 @@ using Flux.Losses
 
 include("average_learner.jl")
 
+mutable struct NFSPAgents <: AbstractPolicy
+    agents::Dict{<:Any, <:Any}
+end
+
 mutable struct NFSPAgent <: AbstractPolicy
     η
+    rng::StableRNG
     rl_agent::Agent
     sl_agent::Agent
 end
 
-function NFSPAgents(env::AbstractEnv; args...)
-    return Dict(
-        [(player, NFSPAgent(env, player; args...)) 
-        for player in players(env) if player != chance_player(env)]
+function NFSPAgents(env::AbstractEnv; kwargs...)
+    NFSPAgents(
+        Dict((player, NFSPAgent(env, player; kwargs...)) 
+        for player in players(env) if player != chance_player(env)
+        )
     )
 end
 
@@ -34,6 +40,7 @@ function NFSPAgent(
     η = 0.01f0,
     _device = Flux.gpu,
     Optimizer = Flux.Descent,
+    rng = StableRNG(123),
     batch_size::Int = 128,
     learn_freq::Int = 128,
     min_buffer_size_to_learn::Int = 1000,
@@ -48,7 +55,7 @@ function NFSPAgent(
     discount_factor::Float32 = 1.0f0,
     update_target_network_freq::Int = 19200,
 
-    # Supervisor Learning
+    # Supervisor Learning(SL) agent parameters
     sl_learning_rate = 0.01,
     SL_buffer_capacity::Int = 2_000_000
     )
@@ -58,7 +65,7 @@ function NFSPAgent(
         env |> action_space |> rand |> env
     end
 
-    # Neural network construction
+    # base Neural network for training DQNLearner
     ns = length(state(env, player))
     na = length(action_space(env, player))
     base_model = Chain(
@@ -88,7 +95,7 @@ function NFSPAgent(
                 rng = rng,
             ),
             explorer = EpsilonGreedyExplorer(
-                kind = :linear,
+                kind = :exp,
                 ϵ_init = ϵ_start,
                 ϵ_stable = ϵ_end,
                 decay_steps = ϵ_decay,
@@ -124,6 +131,7 @@ function NFSPAgent(
 
     NFSPAgent(
         η,
+        rng,
         rl_agent,
         sl_agent,
     )
@@ -147,7 +155,7 @@ function RLBase.update!(π::NFSPAgent, env::AbstractEnv)
     sl = π.sl_agent
     rl = π.rl_agent
     
-    if rand() < π.η
+    if rand(π.rng) < π.η
         action = rl(env)
         sl(PRE_ACT_STAGE, env, action)
         rl(PRE_ACT_STAGE, env, action)
@@ -164,13 +172,31 @@ function RLBase.update!(π::NFSPAgent, env::AbstractEnv)
     end
 end
 
-function RLBase.update!(agents::Dict{<:Any, <:Any}, env::AbstractEnv)
+function RLBase.update!(agents::NFSPAgents, env::AbstractEnv)
     player = current_player(env)
     if player == chance_player(env)
         env |> legal_action_space |> rand |> env
-    
     else
-        RLBase.update!(agents[player], env)
-
+        RLBase.update!(agents.agents[player], env)
     end
 end
+
+function (nfsp::NFSPAgents)(env::AbstractEnv)
+    player = current_player(env)
+    if player == chance_player(env)
+        env |> legal_action_space |> rand |> env
+    else
+        agent = nfsp.agents[player]
+        rand(agent.rng) < agent.η ? agent.rl_agent(env) : agent.sl_agent(env)
+    end
+end
+
+function RLBase.prob(nfsp::NFSPAgents, env::AbstractEnv, args...)
+    player = current_player(env)
+    agent = nfsp.agents[player]
+    a = rand(agent.rng) < agent.η ? agent.rl_agent : agent.sl_agent
+    probs = prob(a.policy, env, args...)
+    return probs
+end
+
+RLBase.prob(p::QBasedPolicy, env::AbstractEnv) = prob(p, env, ActionStyle(env)).p
