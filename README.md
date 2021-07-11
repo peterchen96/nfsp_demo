@@ -53,10 +53,10 @@ Before training the agent, I should encode all states of the players except the 
 ```julia
 wrapped_env = StateTransformedEnv(
         env;
-        state_mapping = s -> 
-        current_player(env) == chance_player(env) ? s : [states_indexes_Dict[current_player(env)][s]],
-        state_space_mapping = ss -> 
-        current_player(env) == chance_player(env) ? ss : 1:length(states[current_player(env)])
+        state_mapping = (s, player=current_player(env)) -> 
+            player == chance_player(env) ? s : [states_indexes_Dict[s]],
+        state_space_mapping = (ss, player=current_player(env)) -> 
+            player == chance_player(env) ? ss : [[i] for i in 1:length(states)]
     )
 ```
 
@@ -95,7 +95,7 @@ wrapped_env = StateTransformedEnv(
 * used time : about 10 min.
 * evaluation_metric: nash_conv
 
-The result looks worse. :disappointed_relieved:
+The result looks bad. :disappointed_relieved:
 
 <div align="center">
 <img src="./result.png" height="300px" alt="result" >
