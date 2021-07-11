@@ -4,7 +4,7 @@ Use `RL.jl` to implement `Neural Fictitious Self-play(NFSP)` algorithm and test 
 
 ### NFSPAgent's structure:
 
-* \eta(anticipatory parameter):
+* anticipatory parameter($\eta$):
 
     ```julia
     if rand() < \eta
@@ -93,9 +93,8 @@ wrapped_env = StateTransformedEnv(
 #### result
 
 * used time : about 10 min.
-* evaluation_metric: player 1's reward
+* evaluation_metric: nash_conv
 
 <div align="center">
-<img src="./scatter_result.png" height="300px" alt="scatter_result" >
 <img src="./result.png" height="300px" alt="result" >
 </div>
