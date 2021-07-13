@@ -12,7 +12,9 @@ using Flux.Losses
 include("average_learner.jl")
 include("supplement.jl")
 
-mutable struct NFSPAgents <: MultiAgentManager end
+mutable struct NFSPAgents <: AbstractPolicy
+    agents::Dict{Any, Any}
+end
 
 mutable struct NFSPAgent <: AbstractPolicy
     η
