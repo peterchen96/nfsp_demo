@@ -37,16 +37,17 @@ wrapped_env = StateTransformedEnv(
             player == chance_player(env) ? ss : [[i] for i in 1:length(states)]
     )
 
-# global parameters
+# set parameters
 seed = 123
 anticipatory_param = 0.1f0
 used_device = Flux.cpu # Flux.gpu
 rng = StableRNG(seed)
-
 hidden_layers = (64, 64)
 eval_every = 10_000
 ϵ_decay = 2_000_000
 train_episodes = 10_000_000
+
+# initial NFSPAgents
 nfsp = NFSPAgents(wrapped_env;
         η = anticipatory_param,
         _device = used_device, 
@@ -66,7 +67,7 @@ results = [] # where can use `hook` to record the results
 
     if episode % eval_every == 0
         push!(episodes, episode)
-        push!(results, RLZoo.nash_conv(nfsp, wrapped_env))
+        push!(results, nash_conv(nfsp, wrapped_env) / 2)
 
     end
 

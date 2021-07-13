@@ -10,10 +10,9 @@ using Flux
 using Flux.Losses
 
 include("average_learner.jl")
+include("supplement.jl")
 
-mutable struct NFSPAgents <: AbstractPolicy
-    agents::Dict{<:Any, <:Any}
-end
+mutable struct NFSPAgents <: MultiAgentManager end
 
 mutable struct NFSPAgent <: AbstractPolicy
     η
@@ -95,7 +94,7 @@ function NFSPAgent(
                 rng = rng,
             ),
             explorer = EpsilonGreedyExplorer(
-                kind = :exp,
+                kind = :linear,
                 ϵ_init = ϵ_start,
                 ϵ_stable = ϵ_end,
                 decay_steps = ϵ_decay,
@@ -113,7 +112,7 @@ function NFSPAgent(
         policy = QBasedPolicy(
             learner = AverageLearner(
                 approximator = NeuralNetworkApproximator(
-                    model = base_model |> _device,
+                    model = build_dueling_network(base_model) |> _device,
                     optimizer = Optimizer(sl_learning_rate),
                 ),
                 batch_size = batch_size,
@@ -121,7 +120,7 @@ function NFSPAgent(
                 min_replay_history = min_buffer_size_to_learn,
                 rng = rng,
             ),
-            explorer = GreedyExplorer(),
+            explorer = WeightedSoftmaxExplorer(),
         ),
         trajectory = CircularArraySARTTrajectory(
             capacity = SL_buffer_capacity,
@@ -162,13 +161,11 @@ function RLBase.update!(π::NFSPAgent, env::AbstractEnv)
         env(action)
         sl(POST_ACT_STAGE, env)
         rl(POST_ACT_STAGE, env)
-    
     else
         action = sl(env)
         rl(PRE_ACT_STAGE, env, action)
         env(action)
         rl(POST_ACT_STAGE, env)
-
     end
 end
 
@@ -181,22 +178,27 @@ function RLBase.update!(agents::NFSPAgents, env::AbstractEnv)
     end
 end
 
-function (nfsp::NFSPAgents)(env::AbstractEnv)
+function (nfsp::NFSPAgent)(env::AbstractEnv)
     player = current_player(env)
     if player == chance_player(env)
         env |> legal_action_space |> rand |> env
     else
-        agent = nfsp.agents[player]
-        rand(agent.rng) < agent.η ? agent.rl_agent(env) : agent.sl_agent(env)
+        nfsp.sl_agent(env)
+        # rand(nfsp.rng) < nfsp.η ? nfsp.rl_agent(env) : nfsp.sl_agent(env)
     end
 end
 
 function RLBase.prob(nfsp::NFSPAgents, env::AbstractEnv, args...)
     player = current_player(env)
     agent = nfsp.agents[player]
-    a = rand(agent.rng) < agent.η ? agent.rl_agent : agent.sl_agent
-    probs = prob(a.policy, env, args...)
-    return probs
+    a = agent.sl_agent
+    return prob(a.policy, env, args...)
 end
 
-RLBase.prob(p::QBasedPolicy, env::AbstractEnv) = prob(p, env, ActionStyle(env)).p
+function RLBase.prob(p::QBasedPolicy, env::AbstractEnv) 
+    # if typeof(p.explorer) == WeightedSoftmaxExplorer{Random._GLOBAL_RNG}
+    prob(p, env, ActionStyle(env))
+    # else
+    #     prob(p, env, ActionStyle(env)).p
+    # end
+end

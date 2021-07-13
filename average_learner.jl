@@ -23,7 +23,7 @@ function AverageLearner(;
     update_horizon::Int = 1,
     min_replay_history::Int = 32,
     update_freq::Int = 1,
-    traces = SARTS, # SART not supported in trajectory fetch!
+    traces = SARTS,
     update_step = 0,
     rng = Random.GLOBAL_RNG,
 ) where {Tq}
@@ -56,7 +56,6 @@ function (learner::AverageLearner)(env)
     x -> send_to_device(device(learner), x) |>
     learner.approximator |>
     send_to_host |> vec
-
 end
 
 
