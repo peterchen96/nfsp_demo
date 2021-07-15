@@ -8,9 +8,15 @@ using ReinforcementLearning
 using StableRNGs
 using Flux
 using Flux.Losses
+using Distributions: TruncatedNormal
 
 include("average_learner.jl")
 include("supplement.jl")
+
+function initW(out_size, in_size)
+    d = TruncatedNormal(0, 1.0 / sqrt(in_size), -2, 2)
+    rand(d, (out_size, in_size))
+end
 
 mutable struct NFSPAgents <: AbstractPolicy
     agents::Dict{Any, Any}
@@ -38,7 +44,7 @@ function NFSPAgent(
 
     # parameters setting
     # public parameters
-    η = 0.01f0,
+    η = 0.1f0,
     _device = Flux.gpu,
     Optimizer = Flux.Descent,
     rng = StableRNG(123),
@@ -52,13 +58,14 @@ function NFSPAgent(
     ϵ_end = 0.001,
     ϵ_decay = 20_000_000,
     rl_learning_rate = 0.01,
-    RL_buffer_capacity::Int = 200_000,
+    rl_loss_func = mse,
+    replay_buffer_capacity::Int = 200_000,
     discount_factor::Float32 = 1.0f0,
     update_target_network_freq::Int = 19200,
 
     # Supervisor Learning(SL) agent parameters
     sl_learning_rate = 0.01,
-    SL_buffer_capacity::Int = 2_000_000
+    reservoir_buffer_capacity::Int = 2_000_000
     )
 
     # ignore chance_player.
@@ -70,10 +77,10 @@ function NFSPAgent(
     ns = length(state(env, player))
     na = length(action_space(env, player))
     base_model = Chain(
-        Dense(ns, hidden_layers[1], relu; init = glorot_uniform(rng)),
-        [Dense(hidden_layers[i], hidden_layers[i+1], relu; init = glorot_uniform(rng)) 
+        Dense(ns, hidden_layers[1], relu; init = initW),
+        [Dense(hidden_layers[i], hidden_layers[i+1], relu; init = initW) 
             for i in 1:length(hidden_layers)-1]...,
-        Dense(hidden_layers[end], na; init = glorot_uniform(rng))
+        Dense(hidden_layers[end], na; init = initW)
     )
 
     # RL agent
@@ -88,7 +95,7 @@ function NFSPAgent(
                     model = build_dueling_network(base_model) |> _device,
                 ),
                 γ = discount_factor,
-                loss_func = huber_loss,
+                loss_func = rl_loss_func,
                 batch_size = batch_size,
                 update_freq = learn_freq,
                 min_replay_history = min_buffer_size_to_learn,
@@ -104,7 +111,7 @@ function NFSPAgent(
             ),
         ),
         trajectory = CircularArraySARTTrajectory(
-            capacity = RL_buffer_capacity,
+            capacity = replay_buffer_capacity,
             state = Vector{Int64} => (ns, )
         ),
     )
@@ -125,7 +132,7 @@ function NFSPAgent(
             explorer = WeightedSoftmaxExplorer(),
         ),
         trajectory = CircularArraySARTTrajectory(
-            capacity = SL_buffer_capacity,
+            capacity = reservoir_buffer_capacity,
             state = Vector{Int64} => (ns, )
         ),
     )
