@@ -1,80 +1,90 @@
 """
 NFSP agents trained on Kuhn Poker game.
 """
-
+#+ tangle=true
 using ReinforcementLearning
-using Flux
 using StableRNGs
-using ProgressMeter: @showprogress
-
+using Flux
+using Flux.Losses
+using Distributions: TruncatedNormal
 include("nfsp.jl")
 
-# Encode the KuhnPokerEnv's states for training.
-env = KuhnPokerEnv()
-states = [
-    (), (:J,), (:Q,), (:K,),
-    (:J, :bet), (:J, :pass), (:Q, :bet), (:Q, :pass), (:K, :bet), (:K, :pass),
-    (:J, :pass, :bet), (:J, :bet, :bet), (:J, :bet, :pass), (:J, :pass, :pass),
-    (:Q, :pass, :bet), (:Q, :bet, :bet), (:Q, :bet, :pass), (:Q, :pass, :pass),
-    (:K, :pass, :bet), (:K, :bet, :bet), (:K, :bet, :pass), (:K, :pass, :pass),
-    (:J, :pass, :bet, :pass), (:J, :pass, :bet, :bet), (:Q, :pass, :bet, :pass),
-    (:Q, :pass, :bet, :bet), (:K, :pass, :bet, :pass), (:K, :pass, :bet, :bet),
-] # all states for players 1 & 2
+mutable struct ResultNEpisode <: AbstractHook
+    episode::Vector{Int}
+    results
+end
+recorder = ResultNEpisode([], [])
 
-states_indexes_Dict = Dict((i, j) for (j, i) in enumerate(states))
+function RL.Experiment(
+    ::Val{:JuliaRL},
+    ::Val{:NFSP},
+    ::Val{:KuhnPoker},
+    ::Nothing;
+    seed = 123,
+)
 
-RLBase.state(env::StateTransformedEnv, args...; kwargs...) =
-    env.state_mapping(state(env.env, args...; kwargs...), args...)
-
-RLBase.state_space(env::StateTransformedEnv, args...; kwargs...) = 
-    env.state_space_mapping(state_space(env.env, args...; kwargs...), args...)
-
-wrapped_env = StateTransformedEnv(
-        env;
-        state_mapping = (s, player=current_player(env)) -> 
-            player == chance_player(env) ? s : [states_indexes_Dict[s]],
-        state_space_mapping = (ss, player=current_player(env)) -> 
-            player == chance_player(env) ? ss : [[i] for i in 1:length(states)]
-    )
-
-# set parameters
-seed = 123
-anticipatory_param = 0.1f0
-used_device = Flux.cpu # Flux.gpu
-rng = StableRNG(seed)
-# hidden_layers = (64, 64)
-eval_every = 10_000
-# ϵ_decay = 2_000_000
-train_episodes = 10_000_000
-
-# initial NFSPAgents
-nfsp = NFSPAgents(wrapped_env;
-        η = anticipatory_param,
-        _device = used_device, 
-        # ϵ_decay = ϵ_decay, 
-        # hidden_layers = hidden_layers,
-        rng = rng
+    # Encode the KuhnPokerEnv's states for training.
+    env = KuhnPokerEnv()
+    states = [
+        (), (:J,), (:Q,), (:K,),
+        (:J, :Q), (:J, :K), (:Q, :J), (:Q, :K), (:K, :J), (:K, :Q),
+        (:J, :bet), (:J, :pass), (:Q, :bet), (:Q, :pass), (:K, :bet), (:K, :pass),
+        (:J, :pass, :bet), (:J, :bet, :bet), (:J, :bet, :pass), (:J, :pass, :pass),
+        (:Q, :pass, :bet), (:Q, :bet, :bet), (:Q, :bet, :pass), (:Q, :pass, :pass),
+        (:K, :pass, :bet), (:K, :bet, :bet), (:K, :bet, :pass), (:K, :pass, :pass),
+        (:J, :pass, :bet, :pass), (:J, :pass, :bet, :bet), (:Q, :pass, :bet, :pass),
+        (:Q, :pass, :bet, :bet), (:K, :pass, :bet, :pass), (:K, :pass, :bet, :bet),
+    ] # collect all states
+    states_indexes_Dict = Dict((i, j) for (j, i) in enumerate(states))
+    wrapped_env = StateTransformedEnv(
+            env;
+            state_mapping = s -> [states_indexes_Dict[s]],
+            state_space_mapping = ss -> [[i] for i in 1:length(states)]
         )
 
-episodes = []
-results = [] # where can use `hook` to record the results
+    # set parameters and initial NFSPAgents
+    nfsp = NFSPAgents(wrapped_env;
+            η = 0.1,
+            _device = Flux.cpu,
+            Optimizer = Flux.Descent,
+            rng = StableRNG(seed),
+            batch_size = 128,
+            learn_freq = 128,
+            min_buffer_size_to_learn = 1000,
+            hidden_layers = (128, 128),
+        
+            # Reinforcement Learning(RL) agent parameters
+            rl_loss_func = mse,
+            rl_learning_rate = 0.01,
+            replay_buffer_capacity = 200_000,
+            ϵ_start = 0.06,
+            ϵ_end = 0.001,
+            ϵ_decay = 20_000_000,
+            discount_factor = 1.0f0,
+            update_target_network_freq = 19200,
+        
+            # Supervisor Learning(SL) agent parameters
+            sl_learning_rate = 0.01,
+            reservoir_buffer_capacity = 2_000_000,
+            )
 
-@showprogress for episode in range(1, length=train_episodes)
-    reset!(wrapped_env)
-    while !is_terminated(wrapped_env)
-        RLBase.update!(nfsp, wrapped_env)
-    end
-
-    if episode % eval_every == 0
-        push!(episodes, episode)
-        push!(results, nash_conv(nfsp, wrapped_env) / 2)
-
-    end
-
+    stop_condition = StopAfterEpisode(10_000_000, is_show_progress=!haskey(ENV, "CI"))
+    hook = DoEveryNEpisode(; n = 10_000) do t, nfsp, wrapped_env
+            push!(recorder.episode, t)
+            push!(recorder.results, RLZoo.nash_conv(nfsp, wrapped_env))
+        end
+    Experiment(nfsp, wrapped_env, stop_condition, hook, "")
 end
 
-# save results
-ENV["GKSwstype"]="nul" 
+#+ tangle=false
 using Plots
+# pyplot() #hide
+ex = E`JuliaRL_NFSP_KuhnPoker`
+# run(nfsp, wrapped_env, stop_condition, hook)
+run(ex)
+plot(recorder.episode, recorder.results, xaxis=:log)
+# xlabel!("episode")
+# ylabel!("nash_conv")
+savefig("JuliaRL_NFSP_KuhnPoker.png")#hide
 
-savefig(plot(episodes, results, xaxis=:log), "result")
+# ![](assets/JuliaRL_NFSP_KuhnPoker.png)
